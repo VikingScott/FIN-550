@@ -1,0 +1,195 @@
+---
+title: "Lab 08 -- Multiple Linear Regression"
+author: Yongpeng Fu
+output:
+  html_document:
+  theme: simplex
+  fig_caption: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Getting started
+
+In this assignment, you will apply multiple regression tools to the Boston Housing Data, which consist of housing values in suburbs of Boston taken from the 1970 Census. The data set also contains other information that may affect house prices, such as the crime rate in the area and the proportion of owner-occupied houses. The data set and data dictionary can be found at [Boston Housing Data](https://archive.ics.uci.edu/ml/machine-learning-databases/housing/).
+
+In RStudio, create a folder called `lab-08` and set this folder as your working directory. Run the following commands to load a dataset of housing values into `data_housing`. Here is a table that lists some of the variable definitions:
+
+| Variable name | Definition |
+|:-----------------------------------|:-----------------------------------|
+| CRIM | Per capita crime rate by census tract |
+| ZN | Proportion of residential land zoned for lots over 25,000 sq.ft. |
+| INDUS | Proportion of non-retail business acres per town |
+| NOX | Nitric oxides concentration (parts per 10 million) |
+| RM | Average number of rooms per dwelling |
+| AGE | Proportion of owner-occupied units built prior to 1940 |
+| DIS | Weighted distances to five Boston employment centers |
+| RAD | Index of accessibility to radial highways |
+| TAX | Full-value property-tax rate per \$10,000 |
+| PTRATIO | Pupil-teacher ratio by town |
+| LSTAT | \% lower status of the population |
+| MEDV | Median value of owner-occupied homes in \$1000's |
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+
+# Variable names
+variables <- c("CRIM", "ZN", "INDUS",  "CHAS", "NOX", "RM", "AGE", "DIS", "RAD", "TAX", "PTRATIO", "B", "LSTAT", "MEDV")
+
+# Read in the data
+housing_data <- read_table("housing-lab08.data", col_names = variables)
+```
+
+# Problem 1: Linear regression
+
+1.  Using `ggplot`, create a scatter plot with the median value of owner-occupied homes (in \$1000's) on the vertical axis and the weighted distances to five Boston employment centers on the horizontal axis. Add a linear trendline to the graph using the `geom_smooth` command. Does the graph suggest that the systematic relationship between these two variables is linear or non-linear? Briefly discuss.
+    1.  There seems to be a linear relationship between these two , as MEDV increases, DIS also increase.
+
+```{r}
+# Scatter plot
+library(ggplot2)
+ggplot(data = housing_data, aes(x = DIS, y = MEDV))+
+  geom_point()+
+  geom_smooth(method  = "lm")
+
+```
+
+2.  Estimate a simple linear model where the outcome is the median value of owner-occupied homes (in \$1000's) and the explanatory variable is the weighted distances to five Boston employment centers. Save the result of this regression in a variable called `lm_dis` and display the results using the `stargazer` function.
+
+```{r}
+library(stargazer)
+# Simple linear regression
+lm_dis <- lm(MEDV ~ DIS, data = housing_data)
+
+# Show regression output using stargazer function
+stargazer(lm_dis,type = "text")
+```
+
+3.  We often describe an estimate as "statistically significant" at the 95% confidence level if the estimate is more than 1.96 (i.e., about 2) standard errors away from zero. Is the estimated parameter on the distance variable statistically significant?
+
+    3.  It is significant, as \*\*\* suggests p\<0.01,meaning it will be significant even under 99% confidence interval. So 95% CI is also satisfied.
+
+4.  Is the following a valid interpretation of the regression results? "Median home values tend to be higher, by about \$1,000 per mile, for neighborhoods located further from employment centers." Briefly discuss.
+
+    3.  A valid interpretation is that, according to the simple regression, neighborhoods further from employment centers are associated with about \$1,000 higher median home values per additional mile. The relationship is associative, not causal, and the effect may be influenced by other omitted variables.
+
+5.  Is the following a valid interpretation of the regression results? "All else equal, being located further from employment centers causes median home values to decrease." Briefly discuss.
+
+    3.  No. The statement is invalid because the regression is simple and does not justify causal claims — it only shows an association. Also, the relationship should be "causing median home values to increase"
+
+# Problem 2: Mean Squared Error (MSE)
+
+1.  What is the "mean squared error" (MSE) of the `lm_dis` model you have estimated? Hint: MSE is calculated as the average value of squared prediction errors for all observations in the data.
+
+```{r}
+# Calculate MSE of the model
+MSE = mean(lm_dis$residuals ^ 2)
+MSE
+```
+
+2.  Add to the `housing_data` data frame 10 new variables called `random_var1` - `random_var10`, where each variable is defined to be a random number drawn uniformly from the interval from -1 to 1. Estimate a linear model named `lm_plus` that builds on the `lm_dis` model, but adds the `random_varX` variables as additional explanatory variable. How does the MSE of `lm_plus` compare to that of `lm_dis`? What do these results imply about using MSE as a criterion for selecting whether a model with more predictors is better than a simpler model with fewer controls?
+    2.  Although lm_plus has a lower MSE than lm_dis, this does not mean it is the better model. In-sample MSE will always decrease (or stay the same) when more predictors are added, even if they are irrelevant. Therefore, MSE alone is not a reliable model selection criterion;
+
+```{r}
+# Set the seed for replicability
+set.seed(123)
+
+n <- nrow(housing_data)
+
+for (i in 1:10) {
+  varname <- paste0("random_var", i)
+  housing_data[[varname]] <- runif(n, min = -1, max = 1)
+}
+
+# Estimate lm_plus model
+lm_plus <- update(lm_dis, . ~ . + random_var1 + random_var2 + random_var3 + random_var4 + random_var5 + random_var6 + random_var7 + random_var8 + random_var9 + random_var10)
+
+# Calculate lm_plus MSE
+mean(lm_plus$residuals ^ 2)
+```
+
+# Problem 3: Multiple linear regression
+
+1.  Building on the simple linear model `lm_dis` from Problem 1, estimate a multiple linear regression of `MEDV` that also controls for the full-value property-tax rate per \$10,000. Save the result of this regression in a variable called `lm_tax`.
+
+```{r, warning=FALSE}
+# Estimate the model
+lm_tax <- lm(MEDV ~ DIS + TAX, data = housing_data)
+```
+
+2.  Building on the linear model `lm_tax`, estimate a multiple linear regression of `MEDV` that also controls for nitric oxides concentration (parts per 10 million). Save the result of this regression in a variable called `lm_nox`.
+
+```{r, warning=FALSE}
+# Estimate the model
+lm_nox <- lm(MEDV ~ DIS + TAX + NOX, data = housing_data)
+```
+
+3.  Building on the simple linear model `lm_nox`, estimate a multiple linear regression of `MEDV` that also controls for percent of the population with low socioeconomic status. Save the result of this regression in a variable called `lm_ses`.
+
+```{r, warning=FALSE}
+# Estimate the model
+lm_ses <- lm(MEDV ~ DIS + TAX + NOX + LSTAT, data = housing_data)
+```
+
+4.  Report regressions results from all four models above in the same table using the `stargazer()` command. What can we learn from these regressions about the relationship between distance to employment centers and median home values?
+
+In the simple regression, homes farther from employment centers appear more valuable. But once we control for property taxes, pollution, and socioeconomic status, the relationship reverses: greater distance is actually associated with lower home values. This shows how important it is to include relevant controls to avoid biased estimates.
+
+```{r, warning=FALSE}
+stargazer(lm_dis, lm_tax, lm_nox, lm_ses, type = "text",
+          column.labels = c("DIS only", 
+                            "DIS + TAX", 
+                            "DIS + TAX + NOX", 
+                            "DIS + TAX + NOX + LSTAT"),
+          table.layout = "#t")
+```
+
+# Problem 4: Non-linear Regression
+
+1.  Estimate a quartic (4th degree polynomial) relationship between median home values and distance to employment centers. Do this "manually" by constructing each of the polynomial terms as new variables in the data frame. Assign the regression results to `lm_dis_man`. Create a scatter plot of median home values versus distance, and add a line plot layer showing the predicted values from this model. Choose a nice color for this line plot (e.g., firebrick red) to help it to stand out against the black scatter plot markers.
+
+```{r}
+# Add DIS_2-DIS_4 to the data frame
+housing_data$DIS2 <- housing_data$DIS^2
+housing_data$DIS3 <- housing_data$DIS^3
+housing_data$DIS4 <- housing_data$DIS^4
+
+# Estimate the model
+lm_dis_man = lm(MEDV ~ DIS + DIS2 + DIS3 + DIS4, data = housing_data)
+summary(lm_dis_man)
+
+# Scatter plot with model predicted values
+housing_data$predicted_MEDV = predict(lm_dis_man)
+
+ggplot(housing_data, aes(x = DIS, y = MEDV)) +
+  geom_point(color = "black", alpha = 0.6) +
+  geom_line(aes(y = predicted_MEDV), color = "firebrick", size=1) +
+  labs(x = "Distance to Employment Centers (DIS)",
+       y = "Median Home Value (MEDV, $1000's)")
+```
+
+2.  Use the `poly()` function in the regression formula to estimate the same quartic model in the previous question. For this question, you should not construct any new variables yourself. Save the results to a variable called `lm_dis_poly`. Use the `all.equal()` command to confirm that the estimated coefficients and predicted values from the `lm_dis_man` and `lm_dis_poly` models are the same.
+
+```{r}
+# Estimate the model
+
+lm_dis_poly <- lm(MEDV ~ poly(DIS, 4, raw = TRUE), data = housing_data)
+# raw = FALSE will constructs linear combinations of these powers that are orthogonal (uncorrelated) with each other. It's not the original DIS^2... we expect.
+
+# Confirm that lm_dis_man and lm_dis_poly coefficients are equal
+all.equal(lm_dis_poly$coefficients,lm_dis_man$coefficients)
+
+# Confirm that lm_dis_man and lm_dis_poly predicted values are equal
+all.equal(lm_dis_poly$fitted.values,lm_dis_man$fitted.values)
+```
+
+3.  The `lm_dis_man` and `lm_ses` models both have 4 predictor variables. Calculate the MSE for each model. Do you think the model with a lower MSE is better than the model with the higher MSE? How does your answer compare to or differ from your answer to Problem 2.2 above? Briefly discuss.
+    3.  lm_ses has a much lower MSE than lm_dis_man, suggesting it provides a better fit to the data. Unlike Problem 2.2, where adding irrelevant predictors reduced MSE in a misleading way, here the reduction is meaningful because the additional predictors (TAX, NOX, LSTAT) capture real determinants of housing values. Therefore, in this case, the lower-MSE model is indeed the better model.
+
+```{r}
+mean(lm_ses$residuals ^ 2) # DIS + TAX + NOX + LSTAT
+mean(lm_dis_man$residuals ^ 2) # DIS + DIS2 + DIS3 + DIS4
+
+```

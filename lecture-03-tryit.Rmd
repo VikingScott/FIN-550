@@ -1,0 +1,85 @@
+---
+title: "Lecture 3: Data Wrangling"
+output:
+  html_document:
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+```
+
+# Creating a data frame in two steps
+
+```{r, eval=TRUE}
+# 1. Store executive names and salaries in vectors
+manager <- c("Timothy D. Cook", "D. Bruce Sewell")
+salary_in_thousand <- c(2000, 1000)
+
+# 2. Call `data.frame()` and specify the column names
+X <- data.frame(EXEC_FULLNAME = manager, SALARY = salary_in_thousand)
+print(X)
+```
+
+## Subsetting a data frame
+### select a column as a vector or as a data frame
+```{r, eval=TRUE}
+X$EXEC_FULLNAME
+X[["EXEC_FULLNAME"]]
+## or select as a dataframe
+X["EXEC_FULLNAME"]
+X[1]
+# use typeof() to check the type, class() to check the class
+typeof(X$EXEC_FULLNAME)
+class(X$EXEC_FULLNAME)
+```
+
+# Tibble vs data frame
+Tibble is a modern reimagining of the data frame, keeping what time has proven to be effective, and throwing out what is not. 
+Tibbles are part of the tidyverse and are data frames that are easier to use.
+
+```{r}
+library(tidyverse)
+Y_tibble <- tibble(EXEC_FULLNAME = c("Timothy D. Cook", "D. Bruce Sewell"), 
+            SALARY =  c(2000, 1000))
+```
+
+## differences between tibble and data frame
+```{r}
+typeof(Y_tibble[, "EXEC_FULLNAME"]) # list
+typeof(Y_tibble[,1]) # list
+typeof(X[,"EXEC_FULLNAME"]) # character
+typeof(X[,1]) # character
+typeof(Y_tibble[1]) # list
+```
+## join two datasets
+```{r, eval=T}
+library(tidyverse)
+Y <- tibble(EXEC_FULLNAME = c("Timothy D. Cook", "D. Bruce Sewell"), 
+            SALARY =  c(2000, 1000))
+Z <- tibble(EXEC_FULLNAME=c("Timothy D. Cook", "Luca Maestri"), BONUS = c(0,0))
+Y
+Z
+```
+
+```{r, eval=T}
+# only keep rows with matching values in both tables
+inner_join(Y,Z, by="EXEC_FULLNAME") 
+
+# keep all rows records in the left table, the "by" argument specifies the column to join on
+left_join(Y,Z, by="EXEC_FULLNAME") 
+
+# keep all rows in the right table, just like left_join.
+right_join(Y,Z, by="EXEC_FULLNAME") 
+
+# keep all rows in both tables
+full_join(Y,Z, by="EXEC_FULLNAME") 
+
+```
+
+# Dataset 
+
+```{r, eval=F}
+# Load the data 
+df <- read_csv("manager.csv")
+```
+

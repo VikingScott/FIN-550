@@ -1,0 +1,269 @@
+---
+title: "Lab 11 - Variable Selection"
+author: Yongpeng Fu
+output:
+  html_document:
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+```
+
+
+## 1 Number of possible models
+```{r}
+# (a) How many possible models are there?
+2^22
+# (b)	You consider using Best Subset Selection to choose a model. How many models will this procedure consider? 
+2^22
+# (c) You consider using Forward Stepwise Selection.  How many models will this procedure consider?
+1+(22*23)/2
+```
+
+## 2 fit a multiple linear regression model
+
+Load the built-in Seatbelts dataset that was used in the lecture on Variable Selection. As in class, we will build a model of DriversKilled, and we will consider four possible predictors: law, PetrolPrice, kms, and kms2.
+
+```{r}
+# Load the dataset into a tibble. Keep the outcome variable and the predictors law, PetrolPrice, and kms. Create the variable kms2 = kms^2
+library(tidyverse)
+library(boot)
+seatbelts <- as_tibble(datasets::Seatbelts)
+
+# We will consider 4 possible predictors of DriversKilled: 
+#   X1 = law
+#   X2 = PetrolPrice
+#   X3 = kms
+#   X4 = kms^2
+seatbelts <- seatbelts %>% 
+  select(DriversKilled, law, PetrolPrice, kms) %>% 
+  mutate(kms2 = kms^2)
+
+```
+
+
+```{r}
+# (a) Best subset selection with 5-fold cross-validation
+set.seed(3)
+f0_1 <- formula(DriversKilled ~ 1)
+# M1: all models with 1 predictor
+f1_1 <- formula(DriversKilled ~ law)
+f1_2 <- formula(DriversKilled ~ PetrolPrice)
+f1_3 <- formula(DriversKilled ~ kms)
+f1_4 <- formula(DriversKilled ~ kms2)
+
+# M2: all models with 2 predictors
+f2_1 <- formula(DriversKilled ~ law + PetrolPrice)
+f2_2 <- formula(DriversKilled ~ law + kms)
+f2_3 <- formula(DriversKilled ~ law + kms2)
+f2_4 <- formula(DriversKilled ~ PetrolPrice + kms)
+f2_5 <- formula(DriversKilled ~ PetrolPrice + kms2)
+f2_6 <- formula(DriversKilled ~ kms + kms2)
+
+# M3: all models with 3 predictors
+f3_1 <- formula(DriversKilled ~ PetrolPrice + kms + kms2)
+f3_2 <- formula(DriversKilled ~ law + kms + kms2)
+f3_3 <- formula(DriversKilled ~ law + PetrolPrice + kms2)
+f3_4 <- formula(DriversKilled ~ law + PetrolPrice + kms)
+
+# M4: all models with 4 predictors
+f4_1 <- formula(DriversKilled ~ law + PetrolPrice + kms + kms2)
+
+formulas <- list(
+  f0_1,
+  f1_1, f1_2, f1_3, f1_4,
+  f2_1, f2_2, f2_3, f2_4, f2_5, f2_6,
+  f3_1, f3_2, f3_3, f3_4,
+  f4_1
+)
+
+cv_fun_5fold <- function(f) {
+  glmfit <- glm(f, data = seatbelts)
+  cv_result <- cv.glm(data = seatbelts, glmfit, K = 5)
+  return(cv_result$delta[1])  # 返回第一个 delta，即 CV MSE
+}
+
+cv_results <- unlist(lapply(formulas, cv_fun_5fold))
+
+best_model_index <- which.min(cv_results)
+
+print(formulas[[best_model_index]])
+print(cv_results[which.min(cv_results)])
+```
+
+How does your answer compare to what we found in class?
+It's the same result as we found in class
+
+```{r}
+# (b) Forward Stepwise Selection with 5-fold cross-validation
+set.seed(3)
+
+vars <- c("law", "PetrolPrice", "kms", "kms2")
+
+selected_vars <- c() # starts with empty var
+remaining_vars <- vars # remaining vars
+results <- list() 
+
+for (step in 1:length(vars)) {
+  
+  # CV MSE for each step, all of them
+  mse_candidates <- c()
+  
+  for (v in remaining_vars) {
+    current_vars <- c(selected_vars, v)
+    f <- as.formula(paste("DriversKilled ~", paste(current_vars, collapse = " + ")))
+    
+    mse <- cv_fun_5fold(f)  # apply 5-fold
+    mse_candidates[v] <- mse
+  }
+  
+  best_var <- names(which.min(mse_candidates))
+  best_mse <- min(mse_candidates)
+  
+  selected_vars <- c(selected_vars, best_var)
+  remaining_vars <- setdiff(remaining_vars, best_var)
+  
+  results[[step]] <- list(step = step,
+                          selected = selected_vars,
+                          mse = best_mse)
+  
+  cat("Step", step, ": Add", best_var, " CV MSE =", round(best_mse, 4), "\n")
+}
+all_mse <- sapply(results, function(x) x$mse)
+best_step <- which.min(all_mse)
+best_mse <- all_mse[best_step]
+
+best_vars <- results[[best_step]]$selected
+
+cat("Best Model on Step", best_step, "on var[", best_vars ,"] ,with CV-MSE =", round(best_mse, 4), "\n")
+```
+
+How does your answer compare to what we found in class?
+It's the same.
+
+```{r}
+# 5-fold
+
+set.seed(3)
+
+vars <- c("law", "PetrolPrice", "kms", "kms2")
+
+selected_vars <- vars 
+results <- list()
+
+for (step in 1:length(vars)) {
+  
+  mse_candidates <- c()
+  
+  if (length(selected_vars) > 1) {
+    for (v in selected_vars) {
+      current_vars <- setdiff(selected_vars, v)  # 去掉一个
+      f <- as.formula(paste("DriversKilled ~", paste(current_vars, collapse = " + ")))
+      mse <- cv_fun_5fold(f)
+      mse_candidates[v] <- mse
+    }
+    
+    worst_var <- names(which.min(mse_candidates))
+    best_mse <- min(mse_candidates)
+    
+    selected_vars <- setdiff(selected_vars, worst_var)
+    
+  } else {
+    # only one var left, go with MSE directly
+    f <- as.formula(paste("DriversKilled ~", selected_vars))
+    best_mse <- cv_fun_5fold(f)
+  }
+  
+  results[[step]] <- list(step = step,
+                          selected = selected_vars,
+                          mse = best_mse)
+  
+  cat("Step", step, ": Remove", ifelse(exists("worst_var"), worst_var, "None"),
+      "→ CV MSE =", round(best_mse, 4), "\n")
+}
+
+all_mse <- sapply(results, function(x) x$mse)
+best_step <- which.min(all_mse)
+best_mse <- all_mse[best_step]
+best_vars <- results[[best_step]]$selected
+
+cat("Best model on Step", best_step,
+    "with var：", paste(best_vars, collapse = " + "),
+    "\n avg CV-MSE =", round(best_mse, 4), "\n")
+
+best_formula <- as.formula(paste("DriversKilled ~", paste(best_vars, collapse = " + ")))
+best_formula
+
+```
+
+```{r}
+set.seed(3)
+
+cv_fun_loocv <- function(f) {
+  glmfit <- glm(f, data = seatbelts)
+  cv_result <- cv.glm(data = seatbelts, glmfit) 
+  return(cv_result$delta[1])
+}
+
+
+
+vars <- c("law", "PetrolPrice", "kms", "kms2")
+
+selected_vars <- vars 
+results <- list()
+
+for (step in 1:length(vars)) {
+  
+  mse_candidates <- c()
+  
+  if (length(selected_vars) > 1) {
+    for (v in selected_vars) {
+      current_vars <- setdiff(selected_vars, v)  # 去掉一个
+      f <- as.formula(paste("DriversKilled ~", paste(current_vars, collapse = " + ")))
+      mse <- cv_fun_loocv(f)
+      mse_candidates[v] <- mse
+    }
+    
+    worst_var <- names(which.min(mse_candidates))
+    best_mse <- min(mse_candidates)
+    
+    selected_vars <- setdiff(selected_vars, worst_var)
+    
+  } else {
+    # only one var left, go with MSE directly
+    f <- as.formula(paste("DriversKilled ~", selected_vars))
+    best_mse <- cv_fun_loocv(f)
+  }
+  
+  results[[step]] <- list(step = step,
+                          selected = selected_vars,
+                          mse = best_mse)
+  
+  cat("Step", step, ": Remove", ifelse(exists("worst_var"), worst_var, "None"),
+      "→ CV MSE =", round(best_mse, 4), "\n")
+}
+
+all_mse <- sapply(results, function(x) x$mse)
+best_step <- which.min(all_mse)
+best_mse <- all_mse[best_step]
+best_vars <- results[[best_step]]$selected
+
+cat("Best model on Step", best_step,
+    "with var：", paste(best_vars, collapse = " + "),
+    "\n avg CV-MSE =", round(best_mse, 4), "\n")
+
+best_formula <- as.formula(paste("DriversKilled ~", paste(best_vars, collapse = " + ")))
+best_formula
+```
+How do your answers compare to what you found in (a) and (b), and in class?
+
+It's the same.
+
+## 3 Bonus problem (optional) 
+```{r}
+# Redo problem 2(a), using algorithm 6.1 from ISLAR
+set.seed(3)
+
+```
+
+How does your answer compare to 2(a)? What is the advantage of using algorithm 6.1?

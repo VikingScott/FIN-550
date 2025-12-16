@@ -1,0 +1,56 @@
+---
+title: "Causal Analysis & Statistical Inference: From Theory to Evidence"
+author: "Student"
+date: "2025-12-15"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+# Part 1: The Causal Goal (Lecture 16)
+
+## 1. Distinction: Prediction vs. Causation
+
+-   **Machine Learning (Prediction):** Focuses on correlation. How does $Y$ correlate with $X$? Used for targeting, recommendation systems [cite: 17, 18, 23-25].
+-   **Econometrics (Causal Analysis):** Focuses on manipulation. How does $Y$ change when we manipulate $X$? Used for policy evaluation, business strategy [cite: 19, 20, 27-31].
+
+## 2. Theoretical Framework: Potential Outcomes
+
+-   **Definition:** Parallel worlds for the same individual $i$ [cite: 133-135].
+    -   $Y_{1i}$: Outcome with treatment (e.g., with health insurance)[cite: 146].
+    -   $Y_{0i}$: Outcome without treatment[cite: 145].
+-   **The Causal Effect:** $\tau_i = Y_{1i} - Y_{0i}$ [cite: 149-150].
+-   **The Fundamental Problem:** We only observe one outcome per person. The other is counterfactual [cite: 151-153].
+
+## 3. The Core Challenge: Selection Bias
+
+-   **Naive Comparison:** Comparing observed means directly ($Y_{John} - Y_{Dan}$) often leads to wrong conclusions [cite: 263-266].
+-   **Decomposition:** Observed Difference = Average Causal Effect + **Selection Bias** [cite: 269-271].
+-   **Solution Principle:** *Ceteris Paribus* (Other things equal). We need a valid control group that represents "what would have happened" [cite: 166-169, 194].
+-   **Gold Standard:** Randomized Experiments (eliminates selection bias)[cite: 172, 198].
+
+------------------------------------------------------------------------
+
+# Part 2: The Statistical Tools (Lecture 17)
+
+## 4. Foundations of Estimation
+
+-   **Terminology:**
+    -   **Estimand:** The truth we want (Population parameter, $\beta$)[cite: 316].
+    -   **Estimator:** The recipe/function (OLS, Sample Mean)[cite: 317].
+    -   **Estimate:** The specific number calculated ($\hat{\beta}$)[cite: 318].
+-   **Sampling Uncertainty:** Estimates vary across samples due to random noise [cite: 301-303].
+
+## 5. Why We Trust Estimates: LLN & CLT
+
+-   **Law of Large Numbers (LLN):** As $N \to \infty$, sample mean converges to population mean (Consistency) [cite: 337-340].
+-   **Central Limit Theorem (CLT):** As $N$ gets large, the distribution of the estimator becomes Normal (allows for inference) [cite: 344-345].
+
+## 6. Quantifying Precision (Inference)
+
+-   **Standard Error (SE):** The standard deviation of the estimator[cite: 374].
+-   **Confidence Intervals (CI):** The range that likely contains the true parameter (usually Estimate $\pm 2 \times SE$) [cite: 375-376].
+-   **Hypothesis Testing & p-values:** Probability of seeing this result if the true effect was zero [cite: 377, 379-382].
+
+\`\`\`{r setup_example, eval=FALSE} \# Conceptual mapping in R \# fit \<- lm(outcome \~ treatment, data = df) \# tidy(fit) \# Gives Estimate, Std.Error, p.value

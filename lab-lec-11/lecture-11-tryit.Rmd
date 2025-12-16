@@ -1,0 +1,178 @@
+---
+title: "Lecture 11"
+subtitle: "Variable selection"
+---
+
+---
+
+# Try it: load seatbelt data
+
+```{r, message=F}
+library(tidyverse)
+library(boot)
+
+# Load the data into a data frame
+seatbelts <- as_tibble(datasets::Seatbelts)
+
+# We will consider 4 possible predictors of DriversKilled: 
+#   X1 = law
+#   X2 = PetrolPrice
+#   X3 = kms
+#   X4 = kms^2
+seatbelts <- seatbelts %>% 
+  select(DriversKilled, law, PetrolPrice, kms) %>% 
+  mutate(kms2 = kms^2)
+```
+
+---
+
+
+# Try it: inspect the 1969-1984 monthly road casualties data
+
+```{r}
+# How many observations are there? Does that number make sense?
+
+# What is the range of the outcome variable, `DriversKilled`?
+```
+
+
+---
+
+# Try it: create a formula object
+
+```{r}
+# M0: constant only model (i.e. no predictors)
+f0_1 <- formula(DriversKilled ~ 1)
+f0_1
+
+# Same as: `lm(DriversKilled ~ 1, data=seatbelts)`
+lm(f0_1, data = seatbelts)
+```
+
+
+
+---
+
+# Try it: define all possible formulas
+
+```{r}
+# M1: all models with 1 predictor
+f1_1 <- formula(DriversKilled ~ law)
+f1_2 <- formula(DriversKilled ~ PetrolPrice)
+f1_3 <- formula(DriversKilled ~ kms)
+f1_4 <- formula(DriversKilled ~ kms2)
+
+# M2: all models with 2 predictors
+f2_1 <- formula(DriversKilled ~ law + PetrolPrice)
+f2_2 <- formula(DriversKilled ~ law + kms)
+f2_3 <- formula(DriversKilled ~ law + kms2)
+f2_4 <- formula(DriversKilled ~ PetrolPrice + kms)
+f2_5 <- formula(DriversKilled ~ PetrolPrice + kms2)
+f2_6 <- formula(DriversKilled ~ kms + kms2)
+```
+
+---
+
+# Try it: define all possible formulas
+
+```{r}
+
+# M3: all models with 3 predictors
+f3_1 <- formula(DriversKilled ~ PetrolPrice + kms + kms2)
+f3_2 <- formula(DriversKilled ~ law + kms + kms2)
+f3_3 <- formula(DriversKilled ~ law + PetrolPrice + kms2)
+f3_4 <- formula(DriversKilled ~ law + PetrolPrice + kms)
+
+# M4: all models with 4 predictors
+f4_1 <- formula(DriversKilled ~ law + PetrolPrice + kms + kms2)
+
+```
+
+---
+
+# Try it: create function to calculate cross-validated error
+
+```{r, eval=F}
+# Use glm() to estimate linear regression of formula f on the seatbelts dataset
+cv_fun <- function(f) {
+  glmfit <- glm(f, data = seatbelts)
+  cv.glm(data = seatbelts, glmfit)$delta[1]
+}
+
+# Run the function
+cv_fun(f0_1)
+
+cv_fun(f3_4)
+```
+
+---
+
+
+# Try it: calculate MSE for all 16 formulas
+
+```{r, eval=F}
+# Create a list of formulas
+formulas <- list(f0_1, 
+                 f1_1, f1_2, f1_3, f1_4,
+                 f2_1, f2_2, f2_3, f2_4, f2_5, f2_6,
+                 f3_1, f3_2, f3_3, f3_4,
+                 f4_1)
+
+# Create a vector for storing the LOOCV MSE for formulas
+formulas_cv <- vector("numeric", length(formulas))
+
+# Use the function we created to calculate the LOOCV MSE for each formula
+for (i in 1:length(formulas)) {
+  formulas_cv[[i]] <-
+}
+```
+
+---
+
+
+# Try it: identify model with the smallest MSE
+
+```{r, eval=F}
+best_model <- which.min(formulas_cv)
+
+# Formula
+formulas[[best_model]]
+
+# MSE
+formulas_cv[[best_model]]
+```
+
+
+
+---
+
+# lapply() is useful when applying a function to a list/vector
+
+```{r, eval=F}
+
+# Instead of writing this for loop:
+#    for (i in 1:length(formulas)) {
+#      formulas_cv[[i]] <- cv_fun(formulas[[i]])
+#    }
+# We can use lapply():
+formulas_cv2 <- lapply(formulas, cv_fun)
+
+best_model <- which.min(formulas_cv2)
+formulas[[best_model]]
+```
+
+---
+
+# sapply() is equivalent to simplify(lapply())
+
+```{r, eval=F}
+# lapply() returns a list. Recall: formulas_cv2 <- lapply(formulas, cv_fun) 
+typeof(formulas_cv2)
+
+# sapply() works like lapply(), but it simplifies the output
+formulas_cv3 <- sapply(formulas, cv_fun)
+typeof(formulas_cv3)
+
+all.equal(simplify(formulas_cv2), formulas_cv3)
+```
+

@@ -1,0 +1,107 @@
+---
+title: "Lab 12 - Lasso Regression"
+author: Yongpeng Fu
+output:
+  html_document:
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+```
+
+## 0 load the packages 
+```{r}
+library(glmnet)
+library(ggplot2)
+```
+
+## 1 create a data frame
+```{r}
+# load the data 
+df <- read.csv("Hitters.csv")
+# first six rows
+head(df)
+# column names
+colnames(df)
+# dimension 
+dim(df)
+# number of rows with missing values 
+sum(is.na(df))
+```
+
+## 2 remove rows that have missing values in any variable  
+```{r}
+# remove rows with any missing values 
+df <- na.omit(df)
+# dimension 
+dim(df)
+# number of missing values 
+sum(is.na(df))
+```
+
+## 3 convert a data frame of predictors to a matrix 
+```{r}
+# convert a data frame of predictors to a matrix and create dummy variables for character variables 
+x <- model.matrix(Salary ~ 0+., df) # drop the intercept
+# first six rows of x
+head(x)
+# outcome variable
+y <- df$Salary
+```
+
+
+## 4 Fit a lasso regression model
+```{r}
+set.seed(123)
+# fit a lasso regression model 
+fit <- cv.glmnet(x,y,alpha = 1)
+# Display the sequence of lambda values 
+fit$lambda
+# Save the smallest, optimal, and largest lambdas
+
+lambda.large <- max(fit$lambda)
+lambda.best <- fit$lambda.min
+lambda.small <- min(fit$lambda)
+```
+
+## 5 model with a small lambda value 
+```{r}
+# Display plot of coefficients
+library(tidyverse)
+betas=as.matrix(fit$glmnet.fit$beta)
+lambdas = fit$lambda
+names(lambdas) = colnames(betas)
+as.data.frame(betas) %>% 
+  tibble::rownames_to_column("variable") %>% 
+  pivot_longer(-variable) %>% 
+  mutate(lambda=lambdas[name]) %>% 
+  ggplot(aes(x=lambda,y=value,col=variable)) + 
+  geom_line() + 
+  scale_x_log10()
+
+
+```
+
+Explain the patterns that you see. What happens to the magnitudes of the coefficients (y-axis values) as you move from left to right along the x-axis? Why?
+
+As lambda increases, the penalty becomes higher, so the less important variables are shrinking into zeros. The pink, blue, and green line represents variables that are most important(though can't tell what they are from the data label as the color is very similar)
+
+## 6 Cross-validated mean-squared error for lambdas
+```{r}
+# CV MSE for large, small, and best lambdas
+fit$cvm[which(fit$lambda == lambda.large)]
+fit$cvm[which(fit$lambda == lambda.small)]
+fit$cvm[which(fit$lambda == lambda.best)]
+```
+
+Which one is smallest? Explain why.
+The lambda.best has the smallest MSE. Largest lambda underfits the model, smallest lambda overfits.
+
+## 7 Predicted values
+```{r}
+# Predict salaries and store in yhat
+df$yhat <- predict(fit, newx = x, s = "lambda.min" ) # or to use s = lambda.best
+# MSE of predictions
+mse <- mean((y - df$yhat)^2)
+mse
+```

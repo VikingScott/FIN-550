@@ -1,0 +1,154 @@
+---
+title: "Lab 10: Cross-Validation"
+output:
+  html_document:
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  fig.align = "center"
+)
+
+knitr::knit_hooks$set(class = function(before, options, envir) {
+  if(before){
+    sprintf("<div class = '%s'>", options$class)
+  }else{
+    "</div>"
+  }
+})
+```
+
+```{=html}
+<style>
+.image-border {
+  border-style: solid;
+  border-color: #F5F5F5;
+  border-width: medium;
+  background-color: white;
+  padding: 0px;
+  display: inline-block;
+}
+</style>
+```
+
+# Permissions and IAM roles
+
+This assignment assumes that you are running RStudio on an Amazon EC2 instance created from AMI `FIN550-RStudio` and IAM role `BigDataEC2Role`.
+
+In this assignment, you will transfer files between your EC2 instance and S3 using file commands from the [AWS Command Line Interface (CLI)](https://aws.amazon.com/cli/#file_commands_anchor). When a file request is made to an S3 bucket, AWS checks to see if the request is coming from an account that is authorized to make the file request. The class S3 bucket at `s3://bigdata-fin550-reif` can only be accessed by AWS EC2 instances with the IAM role `BigDataEC2Role` attached. You will also be able to access S3 buckets that you create, such as `s3://fin550-assignments-netid`.
+
+To confirm that the IAM role `BigDataEC2Role` is correctly attached, select your instance from the Amazon EC2 Console. You should see the role listed under the Description tab.
+
+# Lab workflow
+
+Create a folder for today's lab. In the RStudio File window, create a New Folder under your home directory at `~/fin550/lab-10`. Copy the file `lab-10.Rmd` from the course S3 lab repository at `s3://bigdata-fin550-reif` to your `lab-10` folder by entering the following Unix command. RStudio allows you to execute operating system commands using the built-in shell, found at `Tools` \> `Shell`.
+
+```{bash, eval=FALSE}
+# Enter this command using RStudio Shell
+aws s3 cp --recursive s3://bigdata-fin550-reif/lab-10 ~/fin550/lab-10
+```
+
+Navigate to the `~/fin550/lab-10` lab directory, and open the assignment template `lab-10.Rmd`. Edit the template to answer the questions and complete the assignment.
+
+# Predicting Boston Housing Prices
+
+The file **BostonHousing.csv** contains information collected by the US Bureau of the Census concerning housing in Boston, Massachusetts. The dataset includes information on 506 census housing tracts in the Boston area. The dataset contains the median housing price (`MEDV`) and other information that may affect house prices, such as weighted distances to five Boston employment centers (`DIS`), nitric oxides concentration (`NOX`), and the crime rate in the area (`CRIM`). Description of variables can be found below.
+
+**DESCRIPTION OF VARIABLES FOR BOSTON HOUSING EXAMPLE**
+
+|  |  |
+|----|----|
+| CRIM | Per capita crime rate by town |
+| ZN | Proportion of residential land zoned for lots over 25,000 ft\^2 |
+| INDUS | Proportion of nonretail business acres per town |
+| CHAS | Charles River dummy variable (=1 if tract bounds river; =0 otherwise) |
+| NOX | Nitric oxide concentration (parts per 10 million) |
+| RM | Average number of rooms per dwelling |
+| AGE | Proportion of owner-occupied units built prior to 1940 |
+| DIS | Weighted distances to five Boston employment centers |
+| RAD | Index of accessibility to radial highways |
+| TAX | Full-value property tax rate per \$10,000 |
+| PTRATIO | Pupil/teacher ratio by town |
+| LSTAT | Percentage lower status of the population |
+| MEDEV | Median value of owner-occupied homes in \$1000s |
+
+The goal is to validate three different models that predict median house value (`MEDV`), each one increasing in complexity.
+
+-   Model 1: model `MEDV` as a cubic function of `DIS`.
+
+$$ Y = \beta_{0} + \beta_{1}x_{1} + \beta_{2} x_{1}^2 + \beta_{3} x_{1}^3 + \epsilon $$ where $x_{1}$ is `DIS` and $Y$ is `MEDV`.
+
+-   Model 2: add a 4th degree polynomial in `NOX` as predictors, in addition to predictors in Model 1
+
+$$ Y = \beta_{0} + \beta_{1} x_{1} + \beta_{2} x_{1}^2 + \beta_{3} x_{1}^3 + \beta_{4} x_{2} + \beta_{5} x_{2}^2 +\beta_{6} x_{2} ^3+ \beta_{7} x_{2}^4 + \epsilon $$ where $x_{1}$ is `DIS`, $x_{2}$ is `NOX`, and $Y$ is `MEDV`.
+
+-   Model 3: add a 5th degree polynomial in `CRIM` as predictors, in addition to predictors in Model 2
+
+$$ Y = \beta_{0} + \beta_{1} x_{1} + \beta_{2} x_{1}^2 + \beta_{3} x_{1}^3 + \beta_{4} x_{2} + \beta_{5} x_{2}^2 +\beta_{6} x_{2} ^3 + \beta_{7} x_{2}^4 +
+\beta_{8} x_{3} + \beta_{9} x_{3}^2 +\beta_{10} x_{3}^3 + \beta_{11} x_{3}^4 + \beta_{12} x_{3}^5 + \epsilon $$ where $x_{1}$ is `DIS`, $x_{2}$ is `NOX`, $x_{3}$ is `CRIM`, and $Y$ is `MEDV`.
+
+## 0 Load the package
+
+Use `library()` to load `boot`.
+
+## 1 Create a data frame
+
+Load the data with `read.csv()` and save the result in a data frame named `housing.df`.
+
+Return the first six rows and column names using `head()` and `names()`, respectively.
+
+## 2 Compute leave-one-out cross-validation prediction error
+
+In this question, use the **leave-one-out** cross-validation method to compute the mean squared error (MSE) for three models that predict median house value (`MEDV`).
+
+### 2.1 Model 1: model `MEDV` as a cubic function of `DIS`
+
+According to Model 1, fit a regression model of `MEDV` as a cubic function of `DIS` on data frame `housing.df` using `glm()`. Specify `poly(DIS, 3)` as predictors to compute a third degree polynomial in `DIS`. Save the result as `glm1` and return `summary(glm1)`.
+
+Based on `glm1`, compute the leave-one-out cross-validation prediction error using `cv.glm()` and save the result as `loocv.err1`. Calculate the cross-validated mean squared error (MSE) using `loocv.err1$delta[1]`.
+
+### 2.2 Model 2: add a 4th degree polynomial in `NOX` as predictors, in addition to predictors in Model 1
+
+According to Model 2, fit a regression model of `MEDV` as a cubic function of `DIS` and a quartic function (fourth degree polynomial) of `NOX` on data frame `housing.df` using `glm()`. Specify `poly(DIS, 3)` and `poly(NOX, 4)` as predictors to compute a third degree polynomial in `DIS` and a fourth degree polynomial in `NOX`. Save the result as `glm2` and return `summary(glm2)`.
+
+Based on `glm2`, compute the leave-one-out cross-validation prediction error using `cv.glm()` and save the result as `loocv.err2`. Calculate the cross-validated mean squared error (MSE) using `loocv.err2$delta[1]`.
+
+### 2.3 Model 3: add a 5th degree polynomial in `CRIM` as predictors, in addition to predictors in Model 2
+
+According to Model 3, fit a regression model of `MEDV` as a cubic function of `DIS`, a quartic function of `NOX`, and a quintic function (fifth degree polynomial) of `CRIM` on data frame `housing.df` using `glm()`. Specify `poly(DIS, 3)`, `poly(NOX, 4)`, and `poly(CRIM, 5)` as predictors to compute a third degree polynomial in `DIS`, a fourth degree polynomial in `NOX`, and a fifth degree polynomial in `CRIM`. Save the result as `glm3` and return `summary(glm3)`.
+
+Based on `glm3`, compute the leave-one-out cross-validation prediction error using `cv.glm()` and save the result as `loocv.err3`. Calculate the cross-validated mean squared error (MSE) using `loocv.err3$delta[1]`.
+
+### 2.4 Identify the best a model according to the leave-one-out cross-validation method
+
+Based on the leave-one-out cross-validated MSE you calculated in questions 2.1 to 2.3, which model is best for predicting median home values?
+
+## 3 Compute 5-fold cross-validation prediction error
+
+In this question, use the **5-fold** cross-validation method to compute the mean squared error (MSE) for three models that predict median house value (MEDV).
+
+### 3.1 Model 1: model `MEDV` as a cubic function of `DIS`
+
+Use `set.seed(1)` to set the random seed. Based on `glm1`, compute the 5-fold cross-validation prediction error using `cv.glm()` with `K=5` and save the result as `kfcv.err1`. Calculate the cross-validated mean squared error (MSE) using `kfcv.err1$delta[1]`.
+
+### 3.2 Model 2: add a 4th degree polynomial in `NOX` as predictors, in addition to predictors in Model 1
+
+Use `set.seed(1)` to set the random seed. Based on `glm2`, compute the 5-fold cross-validation prediction error using `cv.glm()` with `K=5` and save the result as `kfcv.err2`. Calculate the cross-validated mean squared error (MSE) using `kfcv.err2$delta[1]`.
+
+### 3.3 Model 3: add a 5th degree polynomial in `CRIM` as predictors, in addition to predictors in Model 2
+
+Use `set.seed(1)` to set the random seed. Based on `glm3`, compute the 5-fold cross-validation prediction error using `cv.glm()` with `K=5` and save the result as `kfcv.err3`. Calculate the cross-validated mean squared error (MSE) using `kfcv.err3$delta[1]`.
+
+### 3.4 Identify the best a model according to the 5-fold cross-validation method
+
+Based on the 5-fold cross-validated MSE you calculated in questions 3.1 to 3.3, which model is best for predicting median home values?
+
+# Assignment submission
+
+After completing the assignment, you should have two files in your`~/fin550/lab-10` lab directory: the Markdown file `lab-10.Rmd` and the corresponding output file `lab-10.html`. Upload both of these files to your S3 assignments bucket, in a folder called `lab-10`. Running the following S3 file command from the Shell in RStudio will automatically created the `lab-10` folder when uploading the respective files (change `netid` to your own). You can navigate to the S3 Management Console in your browser to confirm that the upload was successful.
+
+```{bash, eval=FALSE}
+# This is a Unix command. Enter via RStudio Shell
+# **IMPORTANT** Replace <netid> with your netid before running the following command
+aws s3 cp --recursive ~/fin550/lab-10 s3://fin550-assignments-<netid>/lab-10
+```

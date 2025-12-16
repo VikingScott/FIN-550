@@ -1,0 +1,94 @@
+---
+title: "Lab 07 - Linear Regression"
+author: Yongpeng Fu
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    theme: simplex
+    number_sections: false
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+```
+
+## 0 load the package and suppress scientific notation 
+```{r}
+# load packages 
+library(tidyverse)
+library(ggplot2)
+# not display scientific notation
+options(scipen=999)
+```
+
+## 1 create a data frame 
+
+```{r}
+# read data from a csv file 
+housing.df = read_csv("ameshousing.csv")
+# first six rows 
+head(housing.df)
+# column names 
+colnames(housing.df)
+```
+
+## 2 identify thresholds of 4 bins with an equal number of observations 
+```{r}
+bins <- quantile(housing.df$Gr_Liv_Area,probs = seq(0,1,by = 0.25))
+bins
+```
+
+## 3 bin Gr_Liv_Area   
+```{r}
+# remove the names of a named vector 
+
+# bin Gr_Liv_Area 
+housing.df$Gr_Liv_Area_bin <- .bincode(housing.df$Gr_Liv_Area,breaks = unname(bins),include.lowest = TRUE)
+# first six values of Gr_Liv_Area_bin
+head(housing.df$Gr_Liv_Area_bin)
+# data type of Gr_Liv_Area_bin
+str(housing.df$Gr_Liv_Area_bin)
+```
+
+## 4 fit a regression model with an ordinal categorical predictor 
+```{r}
+lm1 <- lm(SalePrice ~ as.factor(Gr_Liv_Area_bin),data = housing.df)
+summary(lm1)
+
+```
+```{r}
+head(model.matrix(~ as.factor(Gr_Liv_Area_bin), data = housing.df))
+```
+## 5 calculate the mean of Sale Price for each value in Gr_Liv_Area_bin
+```{r}
+
+# mean of SalePrice for each value in Gr_Liv_Area_bin 
+bin_mean <- housing.df %>%
+  group_by(Gr_Liv_Area_bin) %>%
+  summarise(mean_price = mean(SalePrice))
+bin_mean
+
+
+base_mean <- bin_mean$mean_price[bin_mean$Gr_Liv_Area_bin == 1]
+
+# group mean difference between category 2 and category 1
+# group mean difference between category 3 and category 1
+# group mean difference between category 4 and category 1
+bin_means <- bin_mean %>%
+  mutate(diff_vs_group1 = mean_price - base_mean)
+
+bin_means
+
+```
+
+## 6 plot the mean of Sale Price for each value in Gr_Liv_Area_bin
+```{r}
+ggplot(bin_means,aes(x = as.factor(Gr_Liv_Area_bin), y = mean_price))+
+  geom_col(fill = "grey")+
+  labs(x = "Gr_Liv_Area_bin",
+        y = "SalePrice")
+  
+
+```

@@ -1,0 +1,115 @@
+---
+title: "Lecture 5: Data visualization"
+output:
+  html_document:
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE,eval=FALSE)
+```
+
+# Try it: load and inspect the data
+
+```{r, message=F}
+library(tidyverse)
+dataset <- read_csv("lecture-05-data.csv")
+nrow(dataset)
+head(dataset)
+
+```
+
+
+# Try it: summarize the data
+
+```{r block1,results=F}
+# Summary statistics: mean and sd of x and y; correlation between x and y; num obs
+dataset %>% 
+  summarize(mean(x), sd(x), mean(y), sd(y), cor(x,y), n()) %>% 
+  round(3)
+
+# What does the sign of the correlation value mean?
+# Try it: how many groups are there?
+table(dataset$group)
+# count, table, n_distinct
+
+# Try it: calculate summary statistics by group
+dataset %>%
+  group_by(group) %>%
+  summarize(mean(x), sd(x), mean(y), sd(y), cor(x,y), n()) %>% 
+  round(3)
+```
+
+
+# Try it: creating a blank plot object
+
+
+```{r b2, fig.show='hide'}
+# `ggplot(data = <your data frame>)`
+ggplot(data = dataset) 
+```
+
+# Try it: make a simple histogram of the data
+
+.pull-left[
+```{r}
+
+# Simple plot, stored in `gg`
+gg <- ggplot(dataset) +
+  geom_histogram(aes(x=x))+
+  geom_histogram(aes(x=y),fill = "red",alpha = 0.5)
+gg
+```
+
+
+# Try it: make a simple plot of the data
+
+
+```{r b3, fig.show='hide'}
+library(plotly)
+# Simple plot, stored in `gg`
+gg <- ggplot(dataset) +
+  geom_point(aes(x=x, y=y))
+ggplotly(gg)
+```
+```{r, eval=F}
+# Note: geoms inherit aes from ggplot()
+# This code creates the same plot
+gg <- ggplot(dataset, aes(x=x, y=y)) +
+  geom_point()
+gg
+
+gg+
+  geom_smooth(method = "lm",
+              color = "orange",
+              linewidth = 1.5)
+```
+
+
+# Make group-specific colors
+
+```{r b66,fig.show="hide"}
+dataset %>%  
+  ggplot(aes(x = x, y = y)) +
+  geom_point(aes(color=as.factor(group)))
+```
+
+
+# Try it: plot the data for a specific group, g
+
+```{r, eval=F}
+# What does group 4 look like?
+# Hint: modify code below using `filter()`
+dataset %>%
+  filter(group == 13) %>%
+  ggplot(aes(x = x, y = y)) +
+  geom_point(aes(color=as.factor(group)))
+```
+
+```{r}
+dataset %>% 
+  ggplot(aes(x = x, y = y)) +
+  geom_point(aes(color=as.factor(group))) +
+  facet_wrap(~ group) +   # separate panel per group
+  labs(color = "Group")
+```
+

@@ -1,0 +1,124 @@
+---
+title: "Lecture 7: Linear regression"
+output:
+  html_document:
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE,eval=FALSE)
+```
+
+# Load libraries, turn off scientific notation
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+
+# scipen: a penalty for deciding whether to print fixed or exponential notation. 
+# Positive values encourage fixed notation, negative encourage scientific notation
+options(scipen=999)
+```
+
+------------------------------------------------------------------------
+
+# Load and inspect our data
+
+```{r, message=F}
+housing <- read_csv("lecture-07-housing.csv")
+nrow(housing)
+names(housing)
+```
+
+------------------------------------------------------------------------
+
+# Try it: Model with a numeric (continuous) predictor
+
+真实的模型长这样：$Y = \beta_0 + \beta_1 X + \varepsilon$。我们预估的模型长这样 $\hat{Y}_i = \hat{\beta}_0 + \hat{\beta}_1 X_i$ ，因此Y和Y_hat之间有残差：
+
+$$
+\hat{\varepsilon}_i = Y_i - \hat{Y}_i
+$$
+
+如何选择 $\hat{\beta}_0 \hat{\beta}_1$ 就是试图最小化 $\hat{\varepsilon}_i$ ：
+
+$$
+RSS = \sum_{i=1}^n \hat{\varepsilon}_i^2 = \sum_{i=1}^n (Y_i - \hat{Y}_i)^2
+$$
+
+我们选择了平方化，但你也可以用绝对值，但计算起来非常麻烦，因为它和calculus不太合得来。同时，如果 error term 是正态分布，那么最小化 RSS 就等价于最大化似然函数，OLS 就是 MLE，因此 RSS 是唯一的最优解。
+
+```{r}
+summary(housing$SalePrice)
+summary(housing$Mo_Sold)
+
+```
+
+```{r}
+lm1 <- lm(SalePrice ~ 1, data = housing)
+summary(lm1)
+lm1$coefficients
+```
+
+你可以通过
+
+-   “-”来移除一个指定变量，“+”来增加一个变量
+
+-   .：表示数据框里的所有其他变量
+
+-   *y \~ x1:x2* 表示只包含交互项 x1 $\cdot$ x2，没有单独的主效应
+
+-   *y \~ x1 \* x2* 等价于 y \~ x1 + x2 + x1:x2（主效应 + 交互效应）。
+
+-   *y \~ I(x\^2)* 就会被解释成 **自变量是 x\^2（x 的平方）**。
+
+    -   直接写 y \~ x\^2 会被R 把 \^2 解释成 **“包含所有交互项到二阶”**，而不是平方。比如 (x1 + x2)\^2 会展开成 x1 + x2 + x1:x2。
+
+-   y \~ factor(sex) 因子变量自动展开dummy variable
+
+-   update(model, . \~ . - x3 + x4) 在已有的模型上，删去/增加变量
+
+-   y \~ x1 + offset(x2) 固定一个变量的系数不估计，只当常数项使用
+
+```{r lm2, eval=F}
+lm2 <- lm(SalePrice ~ Gr_Liv_Area, data = housing)
+summary(lm2)
+```
+
+------------------------------------------------------------------------
+
+# Try it: scatter plot plus trendline
+
+```{r, eval=F }
+# Plot SalePrice (y-axis) vs Gr_Liv_Area (x-axis)
+# Make the scatterpoints red, with size=2
+ggplot(housing, aes(x = Gr_Liv_Area,y = SalePrice )) + 
+  geom_point(color = "red", size = 2) +
+  geom_line(aes(x =Gr_Liv_Area, y = lm2$fitted.values),color = "blue")
+```
+
+## Categorical Variable
+
+```{r}
+table(housing$Season_Sold) # there are four seasons
+```
+
+therefore, not suitable to treat a categorical variable as continuous, 毕竟2.35的季节没有任何意义。同时，“我增加了一定数量的季节，导致SalePrice增加了beta1\*季节数量” 更没有意义。
+
+所以我们使用dummy variable（“哑变量”），需要记住的是，如果有n个category，要扔掉一个（很多function会自动帮你扔掉一个）
+
+语法是as.factor(categorical_var)或factor()
+
+```{r}
+lm(SalePrice ~ as.factor(Season_Sold),data = housing)
+lm(SalePrice ~ factor(Season_Sold),data = housing)
+```
+
+注意intercept就是season1，那个omitted variable。也就是说，当season = 2时，其他的所有factor都是0，SalesPrice会增加19962
+
+当然你可以手动创造dummy
+
+```{r}
+head(housing$Heating_QC)
+HeatingDummy = as.matrix(housing$Heating_QC)
+HeatingDummy
+```

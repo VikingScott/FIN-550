@@ -1,0 +1,152 @@
+---
+title: "Lecture 22"
+subtitle: "Difference in differences estimation"
+---
+
+
+# Load dataset
+
+```{r, message=F}
+library(tidyverse)
+library(broom)
+df <- read_csv("soda.csv")
+
+head(df)
+```
+
+---
+
+# Try it: summary statistics
+
+```{r}
+
+# How many districts are there? 
+unique(df$district)
+# Which districts are treated? # How many residents are in each district?
+df %>%
+  filter(year == 2025)%>%
+  group_by(district) %>%
+  summarize(n())
+```
+
+
+---
+
+# Plot the post-period data
+
+```{r c2, eval=F}
+ggplot(subset(df, year %in% 2025),
+       aes(x = soda, fill = factor(treat))) + 
+  geom_density(alpha = 0.5) + 
+  scale_fill_manual(name = " ", 
+                    values = c("#a7a8aa", "#cc0055"),
+                    labels = c("Control", "Treatment")) +
+  theme_minimal() + 
+  theme(panel.grid.minor = element_blank()) +
+  theme(legend.position = "bottom") +
+  theme(plot.title = element_text(size=24)) +
+  labs(title = "Soda consumption after tax",
+       x = "Soda consumption (lt)",
+       y = "Density")
+```
+
+---
+
+
+
+# Plot the pre-period data
+
+```{r c1, eval=F}
+ggplot(subset(df, year %in% 2024),
+       aes(x = soda, fill = factor(treat))) + 
+  geom_density(alpha = 0.5) + 
+  scale_fill_manual(name = " ", 
+                    values = c("#a7a8aa", "#cc0055"),
+                    labels = c("Control", "Treatment")) +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank()) +
+  theme(legend.position = "bottom") +
+  theme(plot.title = element_text(size=24)) +
+  labs(title = "Soda consumption before tax",
+       x = "Soda consumption (lt)",
+       y = "Density")
+```
+
+
+
+---
+
+# Estimate Difference in Means for the post-period
+
+```{r }
+# Treat - control, post period: what does this estimate?
+mean(subset(df,year==2025 & treat==1)$soda) - mean(subset(df,year==2025 & treat==0)$soda)
+cat("\n")
+after_model <- lm(soda ~ treat, data = subset(df, year==2025))
+tidy(after_model)
+```
+
+---
+
+# Estimate Difference in Means for the pre-period
+
+```{r}
+# Treat - control, pre period: what does this estimate?
+mean(subset(df,year==2024 & treat==1)$soda) - mean(subset(df,year==2024 & treat==0)$soda)
+cat("\n")
+before_model <- lm(soda ~ treat, data = subset(df, year==2024))
+tidy(before_model)
+```
+
+---
+
+# Try it: estimate DD regression
+
+```{r}
+# Create POST (year=2025) and TREATxPOST dummy variables
+df$post = df$year == 2025
+df$treatXpost = df$treat * df$post
+
+# Regress: soda = beta*treat + gamma*POST + delta_dd*TREATxPOST
+
+lm1 = lm(soda ~ treat + post + treatXpost, data = df)
+tidy(lm1)
+```
+
+---
+
+# DD estimate is difference in differences
+
+
+```{r aa1, eval=F}
+# Treat-control, after: selection bias + treatment
+diff_after <- after_model$coefficients[["treat"]]
+diff_after
+cat("\n")
+
+# Treat-control, before: selection bias
+diff_before <-before_model$coefficients[["treat"]]
+diff_before
+cat("\n")
+
+# DD: (selection bias + treatment)- selection bias
+diff_after - diff_before
+cat("\n")
+lm1$coefficients["TREATxPOST"]
+```
+
+---
+
+# Incorporating additional years
+
+
+```{r, message=F}
+df <- read_csv("soda-all-years.csv")
+df$POST <- df$year==2025
+df$TREATxPOST <- df$treat*df$POST
+
+# Replicate previous regression
+lm1 <- lm(soda ~ treat + POST + TREATxPOST, data=df, subset=(year == 2024 | year == 2025))
+tidy(lm1)
+
+```

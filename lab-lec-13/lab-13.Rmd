@@ -1,0 +1,185 @@
+---
+title: "Lab-13: Regression and classification trees"
+author: Yongpeng Fu
+output:
+  html_document:
+  theme: simplex
+  fig_caption: true
+---
+
+# Getting started
+In class, we learned how to build a regression tree. In this lab assignment, you will build a classification tree. We will predict a binary outcome, Personal Loan. The loan request is either accepted or it is not.
+
+Start by loading the `tidyverse`, `rpart`, `rpart.plot`, `caret`, and `ggplot2` packages.
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(ggplot2)
+
+```
+
+
+---
+
+# 1. Data loading and cleaning
+
+Load the dataset `UniversalBank.csv` into a tibble called `bank.df`. Replace all spaces in variable names with a period ('.'). Drop the `ID` and `ZIP.Code` columns, and inspect the first 6 rows of the dataset. Use `as.factor()` to convert the numeric `Personal.Loan` and `Education` variables into categorical variables.
+
+
+
+```{r}
+# Load dataset
+bank.df <- read.csv("UniversalBank.csv")
+colnames(bank.df)
+# drop ID and zip code columns
+bank.df <- bank.df %>%
+  select(-ID, -ZIP.Code) %>%
+  mutate(
+    Personal.Loan = as.factor(Personal.Loan),
+    Education = as.factor(Education)
+  )
+head(bank.df)
+
+```
+
+---
+
+# 2. Build a classification tree
+
+## 2a. 
+Build a classification tree using `rpart()`, and assign it to an object called `bank.tree`. Because this is a classification tree, we will specify `method="class"` as an argument. In addition, set `cp=0`, and do not limit the depth of the tree. Finally, display the number of leaves in the tree.
+
+```{r}
+
+# Build the tree
+set.seed(1)
+bank.tree <- rpart(
+  Personal.Loan ~ .,    
+  data = bank.df,
+  method = "class",         
+  cp = 0
+)
+
+# 查看叶子节点数量
+n_distinct(bank.tree$where)
+
+```
+
+## 2b. 
+Plot the tree object using the `prp()` command used in class. 
+
+
+```{r}
+prp(bank.tree,box.palette = "auto")
+```
+
+**Question**: What do the numbers below the leaves represent?
+
+**Answer**: 
+The numbers below the leaves (0 and 1) represent the predicted class for that terminal node — 0 = “loan not accepted”, 1 = “loan accepted”.
+
+
+## 2c. 
+Plot the tree object using the `plot()` and `text()` commands. If you are able to create a tree plot that is readable and looks nice, let the professor know!
+
+```{r}
+plot(bank.tree, uniform = TRUE, margin = 0.1)
+text(bank.tree, use.n = TRUE, all = TRUE, cex = 0.8)
+```
+
+---
+
+# 3. Prune the tree
+
+## 3a.
+
+What is the optimal alpha? What is the cross-validated mean-squared error associated with that alpha?
+
+```{r}
+cp <- printcp(bank.tree)
+
+# Minimum CV MSE
+cvmse.min <- min(cp[ ,"xerror"])
+
+# Optimal alpha
+index <- which.min(cp[ ,"xerror"])
+alpha.best <- cp[index,"CP"]
+```
+
+## 3b.
+
+Use the optimal alpha to prune the tree. Create a plot of the pruned tree using `prp`, and calculate how many leaves the plot has.
+
+
+```{r}
+# Prune tree
+prune_bank <- prune(bank.tree,cp = alpha.best)
+
+# Pruned tree plot
+prp(prune_bank,,box.palette = "auto")
+
+# Number of leaves
+n_distinct(prune_bank$where)
+
+```
+
+---
+
+# 4. Make predictions and compare to logistic regression
+
+## 4a.
+Use the pruned tree to predict the outcome variable, `Personal.Loan`. Use the `predict()` function, and specify `type="class"`. Confirm that the number of predictions matches the number of observations in the dataset.
+
+```{r}
+# Prediction
+loan_predict <- predict(prune_bank, newdata = bank.df,type = "class")
+length(loan_predict)
+nrow(bank.df)
+```
+
+## 4b. 
+
+Using the function `confusionMatrix()`, create a confusion matrix to assess the quality of the tree predictions. Store it in an object, `cm.tree`, and display it.
+
+```{r}
+# Confusion Matrix
+cm.tree <- confusionMatrix(loan_predict, bank.df$Personal.Loan)
+cm.tree
+
+
+```
+
+## 4b. 
+Use `glm()` to estimate a logistic regression of `Personal.Loan` on the other variables in the `bank.df` dataset. Store the vector of predicted probabilities in `yhat.logit.prob`. Store the vector of predicted classifications (0/1) in `yhat.logit`.
+
+```{r}
+# Logistic regression
+logit <- glm(Personal.Loan ~ ., 
+                   data = bank.df, 
+                   family = "binomial")
+
+
+# Logistic predictions
+yhat.logit.prob <- predict(logit, bank.df, type = "response")
+yhat.logit <- as.factor(ifelse(yhat.logit.prob > 0.5, 1, 0))
+
+
+```
+
+## 4c.
+Create a confusion matrix to assess the quality of the logit predictions. Store it in an object, `cm.logit`, and display it.
+
+
+```{r}
+# Logit confusion matrix
+cm.logit <- confusionMatrix(yhat.logit, bank.df$Personal.Loan)
+cm.logit
+```
+
+**Question**: Use the output of the confusion matrices to evaluate which model (classification tree or logit) does a better job at prediction in this setting. Your answer should include a discussion of false positives and false negatives.
+
+**Answer**: 
+The classification tree outperforms the logistic regression model in this setting. It achieves higher accuracy (98.8% vs. 95.9%) and produces fewer false positives and false negatives. While the logistic model tends to miss more potential loan customers (higher false negatives), the tree more effectively identifies those likely to accept a loan while minimizing incorrect offers. 
